@@ -156,4 +156,41 @@ elif page == "Inference":
                     st.error(result)
                 else:
                     st.success(result)
+                    
+        # Visualization
+        st.subheader("Inference Results")
+        results = backend.load_latest_inference_result()
+        
+        if results and selected_video_name in results:
+             preds = results[selected_video_name] # list of ints
+             if preds:
+                  # Create a dataframe for Altair
+                  # frame, class
+                  df_res = pd.DataFrame({
+                      "frame": range(len(preds)),
+                      "class": preds
+                  })
+                  
+                  import altair as alt
+                  
+                  chart = alt.Chart(df_res).mark_rect().encode(
+                      x=alt.X('frame:Q', bin=alt.Bin(maxbins=100)), # Bin for raster-like view if long
+                      y=alt.Y('class:O'),
+                      color=alt.Color('class:N', scale=alt.Scale(scheme='category10')),
+                      tooltip=['frame', 'class']
+                  ).properties(
+                      title=f"Behavioral Segmentation for {selected_video_name}",
+                      width=700,
+                      height=150
+                  )
+                  
+                  st.altair_chart(chart, use_container_width=True)
+                  
+                  st.success(f"Visualizing {len(preds)} frames of predictions.")
+             else:
+                  st.warning("Empty predictions found.")
+        elif results:
+             st.info(f"No results found for {selected_video_name} (found results for: {list(results.keys())})")
+        else:
+             st.info("No inference results found. Run inference first.")
 

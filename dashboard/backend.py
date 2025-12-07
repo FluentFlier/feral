@@ -136,3 +136,39 @@ def save_annotations_to_disk(new_annotations, output_path, video_lengths):
         
     return "Annotations Saved!" 
 
+def load_latest_inference_result(folder="answers"):
+    try:
+        if not os.path.exists(folder):
+            return None
+        
+        # Find latest file
+        files = glob.glob(os.path.join(folder, "_inference_*.json"))
+        if not files:
+            return None
+            
+        latest_file = max(files, key=os.path.getctime)
+        
+        with open(latest_file, 'r') as f:
+            data = json.load(f)
+            
+        # Parse preds: {vid: [[p0, p1], ...]}
+        # We want to return: {vid: [class_id, class_id, ...]}
+        # We also need to map probabilities if possible, but argmax is fine for timeline.
+        
+        simple_preds = {}
+        if 'preds' in data:
+            for vid, probs in data['preds'].items():
+                probs = np.array(probs)
+                # Argmax
+                if len(probs.shape) == 2:
+                    preds = np.argmax(probs, axis=1).tolist()
+                else:
+                    preds = []
+                simple_preds[vid] = preds
+                
+        return simple_preds
+            
+    except Exception as e:
+        print(f"Error loading inference output: {e}")
+        return None 
+
