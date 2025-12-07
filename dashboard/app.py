@@ -2,7 +2,9 @@ import streamlit as st
 import os
 import glob
 import json
-import backend  # Import our new backend module
+import pandas as pd
+import backend
+from backend import save_annotations_to_disk
 
 # Config
 DATA_DIR = "../"
@@ -13,6 +15,8 @@ LABELS_FILE = os.path.join(DATA_DIR, "feral_behavioral_labels.json")
 
 if "annotations" not in st.session_state:
     st.session_state.annotations = {}
+if "video_lengths" not in st.session_state:
+    st.session_state.video_lengths = {}
 
 def load_annotations():
     if os.path.exists(LABELS_FILE):
@@ -83,16 +87,45 @@ if page == "Annotation":
             step=1
         )
         
+        # Save length to session
+        st.session_state.video_lengths[selected_video_name] = total_frames
+        
         start_frame, end_frame = segment_range
         st.caption(f"Selected Segment: Frames {start_frame} to {end_frame}")
 
-        label_id = st.number_input("Class ID", min_value=0, value=1)
+        # Quick Class Buttons
+        st.subheader("Class Selection")
+        col1, col2, col3 = st.columns(3)
+        label_id = 0
+        with col1:
+             if st.button("😴 Sleep (1)"):
+                 save_annotation(selected_video_name, start_frame, end_frame, 1)
+        with col2:
+             if st.button("📡 Antenna (2)"):
+                 save_annotation(selected_video_name, start_frame, end_frame, 2)
+        with col3:
+             label_id = st.number_input("Custom ID", min_value=0, value=1)
+             if st.button("Add Custom"):
+                  save_annotation(selected_video_name, start_frame, end_frame, label_id)
+
+        # Visualization
+        st.divider()
+        st.subheader("Current Annotations")
+        
+        # Save to Disk
+        if st.button("💾 Save All Changes to Disk", type="primary"):
+             msg = save_annotations_to_disk(st.session_state.annotations, LABELS_FILE, st.session_state.video_lengths)
+             st.success(msg)
+             
+        if selected_video_name in st.session_state.annotations:
+            df = pd.DataFrame(st.session_state.annotations[selected_video_name])
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No annotations for this video yet.")
             
-        if st.button("Add Label Segment"):
-            save_annotation(selected_video_name, start_frame, end_frame, label_id)
-            
-        st.write("Current Session Annotations:")
-        st.json(st.session_state.annotations)
+        # Global view
+        with st.expander("View All Session Data"):
+             st.json(st.session_state.annotations)
 
 elif page == "Training":
     st.header("Model Training")
