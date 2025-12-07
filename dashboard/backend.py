@@ -89,7 +89,7 @@ def run_inference(raw_video_path):
     except Exception as e:
         return f"Exception during inference: {str(e)}"
 
-def save_annotations_to_disk(new_annotations, output_path, video_lengths):
+def save_annotations_to_disk(new_annotations, output_path, video_lengths, class_names):
     """
     Merges new annotations (dict of list of segments) into the existing
     feral_behavioral_labels.json format.
@@ -98,12 +98,19 @@ def save_annotations_to_disk(new_annotations, output_path, video_lengths):
         new_annotations: { "video.mp4": [ {'start': 0, 'end': 50, 'label': 1}, ... ] }
         output_path: Path to json file
         video_lengths: { "video.mp4": 1000 } map of total frames
+        class_names: { "1": "Sleep", "2": "Antenna" }
     """
     if not os.path.exists(output_path):
         data = {"is_multilabel": False, "class_names": {"0": "other", "1": "sleep"}, "labels": {}, "splits": {"train": [], "val": [], "test": [], "inference": []}}
     else:
         with open(output_path, 'r') as f:
             data = json.load(f)
+            
+    # Update Class Names
+    if class_names:
+        # Merge, preferring new names? Or existing? Let's overwrite with new for now if provided
+        for k, v in class_names.items():
+            data['class_names'][str(k)] = v
             
     for vid_name, segments in new_annotations.items():
         if vid_name not in video_lengths:

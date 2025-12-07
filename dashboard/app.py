@@ -17,13 +17,22 @@ if "annotations" not in st.session_state:
     st.session_state.annotations = {}
 if "video_lengths" not in st.session_state:
     st.session_state.video_lengths = {}
+# Default classes
+if "class_names" not in st.session_state:
+    st.session_state.class_names = {1: "Sleep", 2: "Antenna"}
 
 def load_annotations():
     if os.path.exists(LABELS_FILE):
         with open(LABELS_FILE, "r") as f:
             data = json.load(f)
             if "class_names" in data:
-                st.session_state.class_names = data["class_names"]
+                # Convert string keys to int
+                st.session_state.class_names = {int(k): v for k, v in data["class_names"].items() if k != "0"} 
+
+# Initial Load
+if "loaded" not in st.session_state:
+    load_annotations()
+    st.session_state.loaded = True
 
 def save_annotation(video_name, start_frame, end_frame, label_id):
     if video_name not in st.session_state.annotations:
@@ -34,7 +43,8 @@ def save_annotation(video_name, start_frame, end_frame, label_id):
         "end": end_frame,
         "label": label_id
     })
-    st.success(f"Added annotation for {video_name}: Class {label_id} ({start_frame}-{end_frame})")
+    cls_name = st.session_state.class_names.get(label_id, f"Class {label_id}")
+    st.success(f"Added: {cls_name} ({start_frame}-{end_frame})")
 
 st.set_page_config(page_title="FERAL Dashboard", layout="wide")
 st.title("FERAL: Behavioral Analysis Dashboard")
@@ -44,68 +54,41 @@ with st.sidebar:
     page = st.radio("Go to", ["Annotation", "Training", "Inference"])
     
     st.divider()
-    st.subheader("System Status")
-    # Check for logs
-    if os.path.exists("dashboard_train.log"):
-        st.info("Training log found.")
-    else:
-        st.write("No active training log.")
-
-if page == "Annotation":
-    st.header("Video Annotation")
-    video_files = glob.glob(os.path.join(RAW_VIDEOS_DIR, "*.mp4"))
-    if not video_files:
-        st.warning("No videos found in raw_videos.")
-    else:
-        video_names = [os.path.basename(v) for v in video_files]
-        selected_video_name = st.selectbox("Select Video", video_names)
-        selected_video_path = os.path.join(RAW_VIDEOS_DIR, selected_video_name)
-        
-        # Read as bytes to ensure access
-        if os.path.exists(selected_video_path):
-            video_bytes = open(selected_video_path, 'rb').read()
-            st.video(video_bytes)
+    st.header("Class Manager")
+    # Add new class
+    new_cls_name = st.text_input("New Class Name")
+    # Find next available ID
+    existing_ids = st.session_state.class_names.keys()
+    next_id = max(existing_ids) + 1 if existing_ids else 1
+    new_cls_id = st.number_input("New Class ID", value=next_id, min_value=1)
+    
+    if st.button("Add Class"):
+        if new_cls_name:
+            st.session_state.class_names[new_cls_id] = new_cls_name
+            st.success(f"Added {new_cls_name} ({new_cls_id})")
         else:
-            st.error(f"File not found: {selected_video_path}")
-        
-        # Get video duration/frames for slider
-        try:
-            from decord import VideoReader, cpu
-            vr = VideoReader(selected_video_path, ctx=cpu(0))
-            total_frames = len(vr)
-        except Exception as e:
-            st.error(f"Could not read video metadata: {e}")
-            total_frames = 1000 # Fallback
+            st.error("Enter a name.")
+            
+    st.write("Current Classes:")
+    st.json(st.session_state.class_names)
 
-        st.subheader("Add Annotation")
-        # Range slider
-        segment_range = st.slider(
-            "Select Frame Range",
-            min_value=0,
-            max_value=total_frames,
-            value=(0, min(100, total_frames)),
-            step=1
-        )
+# ... inside Annotation Page ...
         
-        # Save length to session
-        st.session_state.video_lengths[selected_video_name] = total_frames
-        
-        start_frame, end_frame = segment_range
-        st.caption(f"Selected Segment: Frames {start_frame} to {end_frame}")
-
         # Quick Class Buttons
         st.subheader("Class Selection")
-        col1, col2, col3 = st.columns(3)
-        label_id = 0
-        with col1:
-             if st.button("😴 Sleep (1)"):
-                 save_annotation(selected_video_name, start_frame, end_frame, 1)
-        with col2:
-             if st.button("📡 Antenna (2)"):
-                 save_annotation(selected_video_name, start_frame, end_frame, 2)
-        with col3:
-             label_id = st.number_input("Custom ID", min_value=0, value=1)
-             if st.button("Add Custom"):
+        
+        # Dynamic Columns
+        classes = st.session_state.class_names
+        cols = st.columns(len(classes) + 1)
+        
+        for idx, (cls_id, cls_name) in enumerate(classes.items()):
+            with cols[idx]:
+                if st.button(f"{cls_name} ({cls_id})"):
+                    save_annotation(selected_video_name, start_frame, end_frame, cls_id)
+                    
+        with cols[-1]:
+             label_id = st.number_input("Custom ID", min_value=0, value=1, label_visibility="collapsed")
+             if st.button("Add ID"):
                   save_annotation(selected_video_name, start_frame, end_frame, label_id)
 
         # Visualization
@@ -114,7 +97,12 @@ if page == "Annotation":
         
         # Save to Disk
         if st.button("💾 Save All Changes to Disk", type="primary"):
-             msg = save_annotations_to_disk(st.session_state.annotations, LABELS_FILE, st.session_state.video_lengths)
+             msg = save_annotations_to_disk(
+                 st.session_state.annotations, 
+                 LABELS_FILE, 
+                 st.session_state.video_lengths,
+                 st.session_state.class_names
+             )
              st.success(msg)
              
         if selected_video_name in st.session_state.annotations:
