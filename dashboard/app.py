@@ -48,7 +48,6 @@ with st.sidebar:
 
 if page == "Annotation":
     st.header("Video Annotation")
-    
     video_files = glob.glob(os.path.join(RAW_VIDEOS_DIR, "*.mp4"))
     if not video_files:
         st.warning("No videos found in raw_videos.")
@@ -59,13 +58,29 @@ if page == "Annotation":
         
         st.video(selected_video_path)
         
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            start_frame = st.number_input("Start Frame", min_value=0, value=0)
-        with col2:
-            end_frame = st.number_input("End Frame", min_value=0, value=100)
-        with col3:
-            label_id = st.number_input("Class ID", min_value=0, value=1)
+        # Get video duration/frames for slider
+        try:
+            from decord import VideoReader, cpu
+            vr = VideoReader(selected_video_path, ctx=cpu(0))
+            total_frames = len(vr)
+        except Exception as e:
+            st.error(f"Could not read video metadata: {e}")
+            total_frames = 1000 # Fallback
+
+        st.subheader("Add Annotation")
+        # Range slider
+        segment_range = st.slider(
+            "Select Frame Range",
+            min_value=0,
+            max_value=total_frames,
+            value=(0, min(100, total_frames)),
+            step=1
+        )
+        
+        start_frame, end_frame = segment_range
+        st.caption(f"Selected Segment: Frames {start_frame} to {end_frame}")
+
+        label_id = st.number_input("Class ID", min_value=0, value=1)
             
         if st.button("Add Label Segment"):
             save_annotation(selected_video_name, start_frame, end_frame, label_id)
