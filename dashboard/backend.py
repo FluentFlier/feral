@@ -45,7 +45,8 @@ def run_inference(raw_video_path):
     
     # 2. Config
     config_path = os.path.join(BASE_DIR, "temp_inference.json")
-    subprocess.run(["python3", INFERENCE_CONFIG_SCRIPT, re_encoded_dir, config_path], cwd=BASE_DIR, check=True)
+    labels_path = os.path.join(BASE_DIR, "feral_behavioral_labels.json")
+    subprocess.run(["python3", INFERENCE_CONFIG_SCRIPT, re_encoded_dir, config_path, "--labels", labels_path], cwd=BASE_DIR, check=True)
     
     # 3. Find Checkpoint (take the latest best)
     checkpoints = sorted(
