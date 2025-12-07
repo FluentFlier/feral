@@ -6,7 +6,8 @@ import backend  # Import our new backend module
 
 # Config
 DATA_DIR = "../"
-RAW_VIDEOS_DIR = os.path.join(DATA_DIR, "raw_videos")
+# Use re-encoded videos for browser compatibility
+RAW_VIDEOS_DIR = os.path.join(DATA_DIR, "re_encoded_inference") 
 TRAINING_DIR = os.path.join(DATA_DIR, "training_data")
 LABELS_FILE = os.path.join(DATA_DIR, "feral_behavioral_labels.json")
 
