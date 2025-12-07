@@ -56,7 +56,12 @@ if page == "Annotation":
         selected_video_name = st.selectbox("Select Video", video_names)
         selected_video_path = os.path.join(RAW_VIDEOS_DIR, selected_video_name)
         
-        st.video(selected_video_path)
+        # Read as bytes to ensure access
+        if os.path.exists(selected_video_path):
+            video_bytes = open(selected_video_path, 'rb').read()
+            st.video(video_bytes)
+        else:
+            st.error(f"File not found: {selected_video_path}")
         
         # Get video duration/frames for slider
         try:
