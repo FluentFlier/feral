@@ -6,6 +6,8 @@
 
 # FERAL: Feature Extraction for Recognition of Animal Locomotion
 
+> **Note:** This is an independent implementation building upon the core FERAL concepts. We are developing these features independently with the intention of contributing back to the original project in the future.
+
 Direct video-to-behavior segmentation — no tracking, no pose estimation.
 
 
